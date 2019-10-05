@@ -17,118 +17,8 @@ type File struct {
 	RemoteFilepath string
 }
 
-// Report execute bytes and Error Report
-type Report struct {
-	Bytes int64
-	Error error
-}
-
-func main() {
-	return
-}
-
-// Download is Single File Download
-func Download(username string, host string, port uint16, keyPath string, localFilepath string, remoteFilepath string) Report {
-	conn, client, connErr := connect(username, host, port, keyPath)
-	if connErr != nil {
-		return Report{Bytes: 0, Error: errors.New("connErr: " + connErr.Error())}
-	}
-	defer conn.Close()
-	defer client.Close()
-	return downloadTransfer(client, localFilepath, remoteFilepath)
-}
-
-// DownloadMultiple is Multiple Files Download
-func DownloadMultiple(username string, host string, port uint16, keyPath string, files []File) ([]Report, error) {
-	var reports []Report
-	conn, client, connErr := connect(username, host, port, keyPath)
-	if connErr != nil {
-		return reports, errors.New("connErr: " + connErr.Error())
-	}
-	defer conn.Close()
-	defer client.Close()
-	for _, file := range files {
-		report := downloadTransfer(client, file.LocalFilepath, file.RemoteFilepath)
-		reports = append(reports, report)
-	}
-	return reports, nil
-}
-
-// Download Transfer execute
-func downloadTransfer(client *sftp.Client, localFilepath string, remoteFilepath string) Report {
-	localFile, localFileErr := os.Create(localFilepath)
-	if localFileErr != nil {
-		return Report{Bytes: 0, Error: errors.New("localFileErr: " + localFileErr.Error())}
-	}
-	defer localFile.Close()
-
-	remoteFile, remoteFileErr := client.Open(remoteFilepath)
-	if remoteFileErr != nil {
-		return Report{Bytes: 0, Error: errors.New("remoteFileErr: " + remoteFileErr.Error())}
-	}
-
-	bytes, copyErr := io.Copy(localFile, remoteFile)
-	if copyErr != nil {
-		return Report{Bytes: 0, Error: errors.New("copyErr: " + copyErr.Error())}
-	}
-
-	syncErr := localFile.Sync()
-	if syncErr != nil {
-		return Report{Bytes: 0, Error: errors.New("syncErr: " + syncErr.Error())}
-	}
-	return Report{Bytes: bytes, Error: nil}
-}
-
-// Upload is Single File Upload
-func Upload(username string, host string, port uint16, keyPath string, localFilepath string, remoteFilepath string) Report {
-	conn, client, connErr := connect(username, host, port, keyPath)
-	if connErr != nil {
-		return Report{Bytes: 0, Error: errors.New("connErr: " + connErr.Error())}
-	}
-	defer conn.Close()
-	defer client.Close()
-
-	return uploadTransfer(client, localFilepath, remoteFilepath)
-}
-
-// UploadMultiple is Multiple File Upload
-func UploadMultiple(username string, host string, port uint16, keyPath string, files []File) ([]Report, error) {
-	var reports []Report
-	conn, client, connErr := connect(username, host, port, keyPath)
-	if connErr != nil {
-		return reports, errors.New("connErr: " + connErr.Error())
-	}
-	defer conn.Close()
-	defer client.Close()
-	for _, file := range files {
-		report := uploadTransfer(client, file.LocalFilepath, file.RemoteFilepath)
-		reports = append(reports, report)
-	}
-	return reports, nil
-}
-
-// Upload Transfer execute
-func uploadTransfer(client *sftp.Client, localFilepath string, remoteFilepath string) Report {
-	remoteFile, remoteFileErr := client.Create(remoteFilepath)
-	if remoteFileErr != nil {
-		return Report{Bytes: 0, Error: errors.New("remoteFileErr: " + remoteFileErr.Error())}
-	}
-	defer remoteFile.Close()
-
-	localFile, localFileErr := os.Open(localFilepath)
-	if localFileErr != nil {
-		return Report{Bytes: 0, Error: errors.New("localFileErr: " + localFileErr.Error())}
-	}
-
-	bytes, copyErr := io.Copy(remoteFile, localFile)
-	if copyErr != nil {
-		return Report{Bytes: 0, Error: errors.New("copyErr: " + copyErr.Error())}
-	}
-	return Report{Bytes: bytes, Error: nil}
-}
-
-// SSH Connection
-func connect(username string, host string, port uint16, keyPath string) (conn *ssh.Client, client *sftp.Client, err error) {
+// Connect SSH Connection
+func Connect(username string, host string, port uint16, keyPath string) (conn *ssh.Client, client *sftp.Client, err error) {
 	privateKey, err := ioutil.ReadFile(keyPath)
 	if err != nil {
 		return
@@ -153,4 +43,79 @@ func connect(username string, host string, port uint16, keyPath string) (conn *s
 
 	client, err = sftp.NewClient(conn)
 	return
+}
+
+// Get is Single File Download
+func Get(client *sftp.Client, localFilepath string, remoteFilepath string) (int64, error) {
+	return getTransfer(client, localFilepath, remoteFilepath)
+}
+
+// GetMultiple is Multiple Files Download
+func GetMultiple(client *sftp.Client, files []File) (int64s []int64, errors []error) {
+	for _, file := range files {
+		i, e := getTransfer(client, file.LocalFilepath, file.RemoteFilepath)
+		int64s = append(int64s, i)
+		errors = append(errors, e)
+	}
+	return
+}
+
+// getTransfer Download Transfer execute
+func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath string) (int64, error) {
+	localFile, localFileErr := os.Create(localFilepath)
+	if localFileErr != nil {
+		return 0, errors.New("localFileErr: " + localFileErr.Error())
+	}
+	defer localFile.Close()
+
+	remoteFile, remoteFileErr := client.Open(remoteFilepath)
+	if remoteFileErr != nil {
+		return 0, errors.New("remoteFileErr: " + remoteFileErr.Error())
+	}
+
+	bytes, copyErr := io.Copy(localFile, remoteFile)
+	if copyErr != nil {
+		return 0, errors.New("copyErr: " + copyErr.Error())
+	}
+
+	syncErr := localFile.Sync()
+	if syncErr != nil {
+		return 0, errors.New("syncErr: " + syncErr.Error())
+	}
+	return bytes, nil
+}
+
+// Put is Single File Upload
+func Put(client *sftp.Client, localFilepath string, remoteFilepath string) (int64, error) {
+	return putTransfer(client, localFilepath, remoteFilepath)
+}
+
+// UploadMultiple is Multiple File Upload
+func putMultiple(client *sftp.Client, files []File) (int64s []int64, errors []error) {
+	for _, file := range files {
+		i, e := putTransfer(client, file.LocalFilepath, file.RemoteFilepath)
+		int64s = append(int64s, i)
+		errors = append(errors, e)
+	}
+	return
+}
+
+// Upload Transfer execute
+func putTransfer(client *sftp.Client, localFilepath string, remoteFilepath string) (int64, error) {
+	remoteFile, remoteFileErr := client.Create(remoteFilepath)
+	if remoteFileErr != nil {
+		return 0, errors.New("remoteFileErr: " + remoteFileErr.Error())
+	}
+	defer remoteFile.Close()
+
+	localFile, localFileErr := os.Open(localFilepath)
+	if localFileErr != nil {
+		return 0, errors.New("localFileErr: " + localFileErr.Error())
+	}
+
+	bytes, copyErr := io.Copy(remoteFile, localFile)
+	if copyErr != nil {
+		return 0, errors.New("copyErr: " + copyErr.Error())
+	}
+	return bytes, nil
 }

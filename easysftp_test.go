@@ -33,7 +33,7 @@ func TestConnect(t *testing.T) {
 	host := os.Getenv("EASYSFTP_TEST_HOST")
 	port, _ := strconv.Atoi(os.Getenv("EASYSFTP_TEST_PORT"))
 	keyPath := os.Getenv("EASYSFTP_TEST_FILEPATH")
-	conn, client, err := connect(username, host, uint16(port), keyPath)
+	conn, client, err := Connect(username, host, uint16(port), keyPath)
 	if err != nil {
 		t.Error(err.Error())
 		return

@@ -1,17 +1,4 @@
-# potproject/easysftp
-SFTP connection easy. [pkg/sftp](https://github.com/pkg/sftp) wrapper Golang Library
-
-**Work in Progress**
-
-## Usage
-
-```sh
-import "github.com/potproject/easysftp"
-```
-
-## Example
-```go
-package main
+package example
 
 import (
 	"log"
@@ -45,8 +32,3 @@ func main() {
 	}
 	log.Println("Upload OK:", uploadBytes)
 }
-
-```
-
-## LICENSE
-MIT
