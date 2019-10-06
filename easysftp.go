@@ -72,6 +72,7 @@ func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 	if remoteFileErr != nil {
 		return 0, errors.New("remoteFileErr: " + remoteFileErr.Error())
 	}
+	defer remoteFile.Close()
 
 	bytes, copyErr := io.Copy(localFile, remoteFile)
 	if copyErr != nil {
@@ -112,6 +113,7 @@ func putTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 	if localFileErr != nil {
 		return 0, errors.New("localFileErr: " + localFileErr.Error())
 	}
+	defer localFile.Close()
 
 	bytes, copyErr := io.Copy(remoteFile, localFile)
 	if copyErr != nil {

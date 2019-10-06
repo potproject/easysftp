@@ -9,6 +9,7 @@ package easysftp
 // ENV["EASYSFTP_TEST_FILEPATH"] 	: sftp server rsa OpenSSH key FilePath
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"testing"
@@ -40,4 +41,72 @@ func TestConnect(t *testing.T) {
 	}
 	defer conn.Close()
 	defer client.Close()
+}
+
+func TestGet(t *testing.T) {
+	username := os.Getenv("EASYSFTP_TEST_USERNAME")
+	host := os.Getenv("EASYSFTP_TEST_HOST")
+	port, _ := strconv.Atoi(os.Getenv("EASYSFTP_TEST_PORT"))
+	keyPath := os.Getenv("EASYSFTP_TEST_FILEPATH")
+	conn, client, err := Connect(username, host, uint16(port), keyPath)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	sess, err := conn.NewSession()
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	err = sess.Run("echo 'TestGet' > /tmp/test.txt")
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	_, downloadError := Get(client, "./test.txt", "/tmp/test.txt")
+	if downloadError != nil {
+		t.Error(downloadError.Error())
+		return
+	}
+
+	if err = os.Remove("./test.txt"); err != nil {
+		t.Error(err.Error())
+		return
+	}
+	defer conn.Close()
+	defer client.Close()
+}
+
+func TestPut(t *testing.T) {
+	username := os.Getenv("EASYSFTP_TEST_USERNAME")
+	host := os.Getenv("EASYSFTP_TEST_HOST")
+	port, _ := strconv.Atoi(os.Getenv("EASYSFTP_TEST_PORT"))
+	keyPath := os.Getenv("EASYSFTP_TEST_FILEPATH")
+	_, client, err := Connect(username, host, uint16(port), keyPath)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	file, err := os.OpenFile("./test.txt", os.O_WRONLY|os.O_CREATE, 0777)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	fmt.Fprintln(file, "TestPut")
+	file.Close()
+
+	_, uploadError := Put(client, "./test.txt", "/tmp/test.txt")
+	if uploadError != nil {
+		t.Error(uploadError.Error())
+		return
+	}
+
+	if err = os.Remove("./test.txt"); err != nil {
+		t.Error(err.Error())
+		return
+	}
 }
