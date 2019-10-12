@@ -53,12 +53,16 @@ func TestGet(t *testing.T) {
 		t.Error(err.Error())
 		return
 	}
+	defer conn.Close()
+	defer client.Close()
 
 	sess, err := conn.NewSession()
 	if err != nil {
 		t.Error(err.Error())
 		return
 	}
+	defer sess.Close()
+
 	err = sess.Run("echo 'TestGet' > /tmp/test.txt")
 	if err != nil {
 		t.Error(err.Error())
@@ -75,8 +79,19 @@ func TestGet(t *testing.T) {
 		t.Error(err.Error())
 		return
 	}
-	defer conn.Close()
-	defer client.Close()
+
+	sess2, err := conn.NewSession()
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	defer sess2.Close()
+
+	err = sess2.Run("rm -rf /tmp/test.txt")
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
 }
 
 func TestPut(t *testing.T) {
@@ -84,11 +99,13 @@ func TestPut(t *testing.T) {
 	host := os.Getenv("EASYSFTP_TEST_HOST")
 	port, _ := strconv.Atoi(os.Getenv("EASYSFTP_TEST_PORT"))
 	keyPath := os.Getenv("EASYSFTP_TEST_FILEPATH")
-	_, client, err := Connect(username, host, uint16(port), keyPath)
+	conn, client, err := Connect(username, host, uint16(port), keyPath)
 	if err != nil {
 		t.Error(err.Error())
 		return
 	}
+	defer conn.Close()
+	defer client.Close()
 
 	file, err := os.OpenFile("./test.txt", os.O_WRONLY|os.O_CREATE, 0777)
 	if err != nil {
@@ -106,6 +123,19 @@ func TestPut(t *testing.T) {
 	}
 
 	if err = os.Remove("./test.txt"); err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	sess, err := conn.NewSession()
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	defer sess.Close()
+
+	err = sess.Run("rm -rf /tmp/test.txt")
+	if err != nil {
 		t.Error(err.Error())
 		return
 	}
