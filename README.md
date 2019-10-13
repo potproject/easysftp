@@ -1,8 +1,6 @@
 # potproject/easysftp
 SFTP connection easy. [pkg/sftp](https://github.com/pkg/sftp) wrapper Golang Library
 
-**Work in Progress**
-
 ## Usage
 
 ```sh
