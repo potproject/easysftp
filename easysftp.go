@@ -17,8 +17,14 @@ type File struct {
 	RemoteFilepath string
 }
 
+// Easysftp Stored Client val
+type Easysftp struct {
+	SSHClient  *ssh.Client
+	SFTPClient *sftp.Client
+}
+
 // Connect SSH Connection
-func Connect(username string, host string, port uint16, keyPath string) (conn *ssh.Client, client *sftp.Client, err error) {
+func Connect(username string, host string, port uint16, keyPath string) (esftp Easysftp, err error) {
 	privateKey, err := ioutil.ReadFile(keyPath)
 	if err != nil {
 		return
@@ -36,24 +42,44 @@ func Connect(username string, host string, port uint16, keyPath string) (conn *s
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	conn, err = ssh.Dial("tcp", host+":"+strconv.Itoa(int(port)), clientConfig)
+	conn, err := ssh.Dial("tcp", host+":"+strconv.Itoa(int(port)), clientConfig)
 	if err != nil {
 		return
 	}
 
-	client, err = sftp.NewClient(conn)
+	client, err := sftp.NewClient(conn)
+	if err != nil {
+		return
+	}
+	esftp = Easysftp{
+		SSHClient:  conn,
+		SFTPClient: client,
+	}
+	return
+}
+
+// NewClient SSH Using Conection
+func NewClient(conn *ssh.Client) (esftp Easysftp, err error) {
+	client, err := sftp.NewClient(conn)
+	if err != nil {
+		return
+	}
+	esftp = Easysftp{
+		SSHClient:  conn,
+		SFTPClient: client,
+	}
 	return
 }
 
 // Get is Single File Download
-func Get(client *sftp.Client, localFilepath string, remoteFilepath string) (int64, error) {
-	return getTransfer(client, localFilepath, remoteFilepath)
+func (esftp Easysftp) Get(localFilepath string, remoteFilepath string) (int64, error) {
+	return getTransfer(esftp.SFTPClient, localFilepath, remoteFilepath)
 }
 
 // GetMultiple is Multiple Files Download
-func GetMultiple(client *sftp.Client, files []File) (int64s []int64, errors []error) {
+func (esftp Easysftp) GetMultiple(files []File) (int64s []int64, errors []error) {
 	for _, file := range files {
-		i, e := getTransfer(client, file.LocalFilepath, file.RemoteFilepath)
+		i, e := getTransfer(esftp.SFTPClient, file.LocalFilepath, file.RemoteFilepath)
 		int64s = append(int64s, i)
 		errors = append(errors, e)
 	}
@@ -87,14 +113,14 @@ func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 }
 
 // Put is Single File Upload
-func Put(client *sftp.Client, localFilepath string, remoteFilepath string) (int64, error) {
-	return putTransfer(client, localFilepath, remoteFilepath)
+func (esftp Easysftp) Put(localFilepath string, remoteFilepath string) (int64, error) {
+	return putTransfer(esftp.SFTPClient, localFilepath, remoteFilepath)
 }
 
 // UploadMultiple is Multiple File Upload
-func putMultiple(client *sftp.Client, files []File) (int64s []int64, errors []error) {
+func (esftp Easysftp) putMultiple(files []File) (int64s []int64, errors []error) {
 	for _, file := range files {
-		i, e := putTransfer(client, file.LocalFilepath, file.RemoteFilepath)
+		i, e := putTransfer(esftp.SFTPClient, file.LocalFilepath, file.RemoteFilepath)
 		int64s = append(int64s, i)
 		errors = append(errors, e)
 	}
@@ -120,4 +146,21 @@ func putTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 		return 0, errors.New("copyErr: " + copyErr.Error())
 	}
 	return bytes, nil
+}
+
+// Close Connection Close
+func (esftp Easysftp) Close() (errors []error) {
+	if esftp.SFTPClient != nil {
+		sftpErr := esftp.SFTPClient.Close()
+		if sftpErr != nil {
+			errors = append(errors, sftpErr)
+		}
+	}
+	if esftp.SSHClient != nil {
+		sshErr := esftp.SSHClient.Close()
+		if sshErr != nil {
+			errors = append(errors, sshErr)
+		}
+	}
+	return
 }

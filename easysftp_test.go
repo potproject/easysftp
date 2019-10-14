@@ -34,13 +34,12 @@ func TestConnect(t *testing.T) {
 	host := os.Getenv("EASYSFTP_TEST_HOST")
 	port, _ := strconv.Atoi(os.Getenv("EASYSFTP_TEST_PORT"))
 	keyPath := os.Getenv("EASYSFTP_TEST_FILEPATH")
-	conn, client, err := Connect(username, host, uint16(port), keyPath)
+	esftp, err := Connect(username, host, uint16(port), keyPath)
 	if err != nil {
 		t.Error(err.Error())
 		return
 	}
-	defer conn.Close()
-	defer client.Close()
+	defer esftp.Close()
 }
 
 func TestGet(t *testing.T) {
@@ -48,15 +47,14 @@ func TestGet(t *testing.T) {
 	host := os.Getenv("EASYSFTP_TEST_HOST")
 	port, _ := strconv.Atoi(os.Getenv("EASYSFTP_TEST_PORT"))
 	keyPath := os.Getenv("EASYSFTP_TEST_FILEPATH")
-	conn, client, err := Connect(username, host, uint16(port), keyPath)
+	esftp, err := Connect(username, host, uint16(port), keyPath)
 	if err != nil {
 		t.Error(err.Error())
 		return
 	}
-	defer conn.Close()
-	defer client.Close()
+	defer esftp.Close()
 
-	sess, err := conn.NewSession()
+	sess, err := esftp.SSHClient.NewSession()
 	if err != nil {
 		t.Error(err.Error())
 		return
@@ -69,7 +67,7 @@ func TestGet(t *testing.T) {
 		return
 	}
 
-	_, downloadError := Get(client, "./test.txt", "/tmp/test.txt")
+	_, downloadError := esftp.Get("./test.txt", "/tmp/test.txt")
 	if downloadError != nil {
 		t.Error(downloadError.Error())
 		return
@@ -80,7 +78,7 @@ func TestGet(t *testing.T) {
 		return
 	}
 
-	sess2, err := conn.NewSession()
+	sess2, err := esftp.SSHClient.NewSession()
 	if err != nil {
 		t.Error(err.Error())
 		return
@@ -99,13 +97,12 @@ func TestPut(t *testing.T) {
 	host := os.Getenv("EASYSFTP_TEST_HOST")
 	port, _ := strconv.Atoi(os.Getenv("EASYSFTP_TEST_PORT"))
 	keyPath := os.Getenv("EASYSFTP_TEST_FILEPATH")
-	conn, client, err := Connect(username, host, uint16(port), keyPath)
+	esftp, err := Connect(username, host, uint16(port), keyPath)
 	if err != nil {
 		t.Error(err.Error())
 		return
 	}
-	defer conn.Close()
-	defer client.Close()
+	defer esftp.Close()
 
 	file, err := os.OpenFile("./test.txt", os.O_WRONLY|os.O_CREATE, 0777)
 	if err != nil {
@@ -116,7 +113,7 @@ func TestPut(t *testing.T) {
 	fmt.Fprintln(file, "TestPut")
 	file.Close()
 
-	_, uploadError := Put(client, "./test.txt", "/tmp/test.txt")
+	_, uploadError := esftp.Put("./test.txt", "/tmp/test.txt")
 	if uploadError != nil {
 		t.Error(uploadError.Error())
 		return
@@ -127,7 +124,7 @@ func TestPut(t *testing.T) {
 		return
 	}
 
-	sess, err := conn.NewSession()
+	sess, err := esftp.SSHClient.NewSession()
 	if err != nil {
 		t.Error(err.Error())
 		return
