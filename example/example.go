@@ -7,9 +7,13 @@ import (
 )
 
 func main() {
-	// Connect
+	// Connect Example
 	// [SFTP Command] $ sftp USERNAME@example.hostname.local -oPort=22 -i ~/.ssh/id_rsa
 	esftpSession, err := easysftp.Connect("USERNAME", "example.hostname.local", 22, "~/.ssh/id_rsa")
+
+	// Alternative: Using *ssh.Client
+	// esftpSession, err := easysftp.NewClient(conn)
+
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -21,13 +25,13 @@ func main() {
 	if downloadError != nil {
 		log.Fatalln("Download Error:", err.Error())
 	}
-	log.Println("Downlaod OK:", downloadBytes)
+	log.Println("Download OK:", downloadBytes)
 
 	// SFTP File Put
 	// [SFTP Command] sftp> put /tmp/localfile.txt /tmp/remotefile.txt
 	uploadBytes, uploadError := esftpSession.Put("/tmp/localfile.txt", "/tmp/remotefile.txt")
 	if uploadError != nil {
-		log.Fatalln("Uplaod Error:", err.Error())
+		log.Fatalln("Upload Error:", err.Error())
 	}
 	log.Println("Upload OK:", uploadBytes)
 }
