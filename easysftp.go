@@ -148,7 +148,7 @@ func putTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 	return bytes, nil
 }
 
-// Close Connection Close
+// Close Connection ALL Connection Close
 func (esftp Easysftp) Close() (errors []error) {
 	if esftp.SFTPClient != nil {
 		sftpErr := esftp.SFTPClient.Close()
@@ -163,4 +163,9 @@ func (esftp Easysftp) Close() (errors []error) {
 		}
 	}
 	return
+}
+
+// Quit alias Close()
+func (esftp Easysftp) Quit() (errors []error) {
+	return esftp.Close()
 }
