@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/pkg/sftp"
@@ -76,14 +77,51 @@ func (esftp Easysftp) Get(localFilepath string, remoteFilepath string) (int64, e
 	return getTransfer(esftp.SFTPClient, localFilepath, remoteFilepath)
 }
 
-// GetMultiple is Multiple Files Download
-func (esftp Easysftp) GetMultiple(files []File) (int64s []int64, errors []error) {
-	for _, file := range files {
-		i, e := getTransfer(esftp.SFTPClient, file.LocalFilepath, file.RemoteFilepath)
-		int64s = append(int64s, i)
-		errors = append(errors, e)
+// GetRecursively is Recursively Download entire directories
+func (esftp Easysftp) GetRecursively(localPath string, remotePath string) error {
+	remoteWalker := esftp.SFTPClient.Walk(remotePath)
+	if remoteWalker == nil {
+		return errors.New("SFTP Walker Error")
 	}
-	return
+	for remoteWalker.Step() {
+		err := remoteWalker.Err()
+		if err != nil {
+			return err
+		}
+		remoteFullFilepath := remoteWalker.Path()
+		localFilepath, _ := getLocalFilepath(localPath, remotePath, remoteFullFilepath)
+
+		// if Not Exist Mkdir
+		if remoteWalker.Stat().IsDir() {
+			localStat, localStatErr := os.Stat(localFilepath)
+			// 存在するかつディレクトリではない場合エラー
+			if !os.IsNotExist(localStatErr) && !localStat.IsDir() {
+				return errors.New("Cannot create a directry when that file already exists")
+			}
+			mode := remoteWalker.Stat().Mode()
+			if os.IsNotExist(localStatErr) {
+				mkErr := os.Mkdir(localFilepath, mode)
+				if mkErr != nil {
+					return mkErr
+				}
+			}
+			continue
+		}
+		_, getErr := getTransfer(esftp.SFTPClient, localFilepath, remoteFullFilepath)
+		if getErr != nil {
+			return getErr
+		}
+	}
+	return nil
+}
+
+func getLocalFilepath(localPath string, remotePath string, remoteFullFilepath string) (string, error) {
+	rel, err := filepath.Rel(filepath.Clean(remotePath), remoteFullFilepath)
+	if err != nil {
+		return "", err
+	}
+	localFilepath := filepath.Join(localPath, rel)
+	return localFilepath, nil
 }
 
 // getTransfer Download Transfer execute

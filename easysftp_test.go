@@ -42,6 +42,56 @@ func TestConnect(t *testing.T) {
 	defer esftp.Close()
 }
 
+func TestGetRecursively(t *testing.T) {
+	username := os.Getenv("EASYSFTP_TEST_USERNAME")
+	host := os.Getenv("EASYSFTP_TEST_HOST")
+	port, _ := strconv.Atoi(os.Getenv("EASYSFTP_TEST_PORT"))
+	keyPath := os.Getenv("EASYSFTP_TEST_FILEPATH")
+	esftp, err := Connect(username, host, uint16(port), keyPath)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	defer esftp.Close()
+
+	sess, err := esftp.SSHClient.NewSession()
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	defer sess.Close()
+
+	err = sess.Run("mkdir -p /tmp/test && echo 'TestGetRecursively' > /tmp/test/test.txt && mkdir -p /tmp/test/test2 && echo 'TestGetRecursively2' > /tmp/test/test2/test2.txt")
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	downloadError := esftp.GetRecursively("./testdirectory", "/tmp/test")
+	if downloadError != nil {
+		t.Error(downloadError.Error())
+		return
+	}
+
+	if err = os.RemoveAll("./testdirectory"); err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	sess2, err := esftp.SSHClient.NewSession()
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	defer sess2.Close()
+
+	err = sess2.Run("rm -rf /tmp/test")
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+}
+
 func TestGet(t *testing.T) {
 	username := os.Getenv("EASYSFTP_TEST_USERNAME")
 	host := os.Getenv("EASYSFTP_TEST_HOST")
