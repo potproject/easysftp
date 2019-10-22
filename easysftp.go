@@ -89,7 +89,7 @@ func (esftp Easysftp) GetRecursively(localPath string, remotePath string) error 
 			return err
 		}
 		remoteFullFilepath := remoteWalker.Path()
-		localFilepath, _ := getLocalFilepath(localPath, remotePath, remoteFullFilepath)
+		localFilepath, _ := getRecursivelyPath(localPath, remotePath, remoteFullFilepath)
 
 		// if Not Exist Mkdir
 		if remoteWalker.Stat().IsDir() {
@@ -113,15 +113,6 @@ func (esftp Easysftp) GetRecursively(localPath string, remotePath string) error 
 		}
 	}
 	return nil
-}
-
-func getLocalFilepath(localPath string, remotePath string, remoteFullFilepath string) (string, error) {
-	rel, err := filepath.Rel(filepath.Clean(remotePath), remoteFullFilepath)
-	if err != nil {
-		return "", err
-	}
-	localFilepath := filepath.Join(localPath, rel)
-	return localFilepath, nil
 }
 
 // getTransfer Download Transfer execute
@@ -155,14 +146,40 @@ func (esftp Easysftp) Put(localFilepath string, remoteFilepath string) (int64, e
 	return putTransfer(esftp.SFTPClient, localFilepath, remoteFilepath)
 }
 
-// UploadMultiple is Multiple File Upload
-func (esftp Easysftp) putMultiple(files []File) (int64s []int64, errors []error) {
-	for _, file := range files {
-		i, e := putTransfer(esftp.SFTPClient, file.LocalFilepath, file.RemoteFilepath)
-		int64s = append(int64s, i)
-		errors = append(errors, e)
-	}
-	return
+// PutRecursively is Recursively Upload entire directories
+func (esftp Easysftp) PutRecursively(localPath string, remotePath string) error {
+	localWalkerErr := filepath.Walk(localPath, func(localFullFilepath string, info os.FileInfo, fileErr error) error {
+		if fileErr != nil {
+			return fileErr
+		}
+		remoteFilepath, _ := getRecursivelyPath(remotePath, localPath, localFullFilepath)
+		// if Not Exist Mkdir
+		if info.IsDir() {
+			remoteStat, remoteStatErr := esftp.SFTPClient.Stat(remoteFilepath)
+			// 存在するかつディレクトリではない場合エラー
+			if !os.IsNotExist(remoteStatErr) && !remoteStat.IsDir() {
+				return errors.New("Cannot create a directry when that file already exists")
+			}
+			mode := info.Mode()
+			if os.IsNotExist(remoteStatErr) {
+				mkErr := esftp.SFTPClient.Mkdir(remoteFilepath)
+				if mkErr != nil {
+					return mkErr
+				}
+				chErr := esftp.SFTPClient.Chmod(remoteFilepath, mode)
+				if chErr != nil {
+					return chErr
+				}
+			}
+			return nil
+		}
+		_, getErr := putTransfer(esftp.SFTPClient, localFullFilepath, remoteFilepath)
+		if getErr != nil {
+			return getErr
+		}
+		return nil
+	})
+	return localWalkerErr
 }
 
 // Upload Transfer execute
@@ -201,6 +218,15 @@ func (esftp Easysftp) Close() (errors []error) {
 		}
 	}
 	return
+}
+
+func getRecursivelyPath(localPath string, remotePath string, remoteFullFilepath string) (string, error) {
+	rel, err := filepath.Rel(filepath.Clean(remotePath), remoteFullFilepath)
+	if err != nil {
+		return "", err
+	}
+	localFilepath := filepath.Join(localPath, rel)
+	return filepath.ToSlash(localFilepath), nil
 }
 
 // Quit alias Close()

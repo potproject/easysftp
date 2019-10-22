@@ -187,3 +187,70 @@ func TestPut(t *testing.T) {
 		return
 	}
 }
+
+func TestPutRecursively(t *testing.T) {
+	username := os.Getenv("EASYSFTP_TEST_USERNAME")
+	host := os.Getenv("EASYSFTP_TEST_HOST")
+	port, _ := strconv.Atoi(os.Getenv("EASYSFTP_TEST_PORT"))
+	keyPath := os.Getenv("EASYSFTP_TEST_FILEPATH")
+	esftp, err := Connect(username, host, uint16(port), keyPath)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	defer esftp.Close()
+
+	err = os.MkdirAll("./testdirectory", 0777)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	file, err := os.OpenFile("./testdirectory/test.txt", os.O_WRONLY|os.O_CREATE, 0777)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	fmt.Fprintln(file, "TestPutRecursively")
+	file.Close()
+
+	err = os.MkdirAll("./testdirectory/test2", 0777)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	file2, err := os.OpenFile("./testdirectory/test2/test2.txt", os.O_WRONLY|os.O_CREATE, 0777)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	fmt.Fprintln(file2, "TestPutRecursively2")
+	file2.Close()
+
+	uploadError := esftp.PutRecursively("./testdirectory", "/tmp/test")
+	if uploadError != nil {
+		t.Error(uploadError.Error())
+		return
+	}
+
+	if err = os.RemoveAll("./testdirectory"); err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	sess, err := esftp.SSHClient.NewSession()
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	defer sess.Close()
+
+	err = sess.Run("rm -rf /tmp/test")
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+}
