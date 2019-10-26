@@ -24,6 +24,19 @@ type Easysftp struct {
 	SFTPClient *sftp.Client
 }
 
+// IOReaderProgress forwards the Read() call
+// Addging transferredBytes
+type IOReaderProgress struct {
+	io.Reader
+	TransferredBytes *int64 // Total of bytes transferred
+}
+
+func (iorp *IOReaderProgress) Read(p []byte) (int, error) {
+	n, err := iorp.Reader.Read(p)
+	*iorp.TransferredBytes += int64(n)
+	return n, err
+}
+
 // Connect SSH Connection
 func Connect(username string, host string, port uint16, keyPath string) (esftp Easysftp, err error) {
 	privateKey, err := ioutil.ReadFile(keyPath)
@@ -74,7 +87,12 @@ func NewClient(conn *ssh.Client) (esftp Easysftp, err error) {
 
 // Get is Single File Download
 func (esftp Easysftp) Get(localFilepath string, remoteFilepath string) (int64, error) {
-	return getTransfer(esftp.SFTPClient, localFilepath, remoteFilepath)
+	return getTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, nil)
+}
+
+// GetWithProgress [Experimental] Get with Display Processing Bytes
+func (esftp Easysftp) GetWithProgress(localFilepath string, remoteFilepath string, transferred *int64) (int64, error) {
+	return getTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, transferred)
 }
 
 // GetRecursively is Recursively Download entire directories
@@ -107,7 +125,7 @@ func (esftp Easysftp) GetRecursively(localPath string, remotePath string) error 
 			}
 			continue
 		}
-		_, getErr := getTransfer(esftp.SFTPClient, localFilepath, remoteFullFilepath)
+		_, getErr := getTransfer(esftp.SFTPClient, localFilepath, remoteFullFilepath, nil)
 		if getErr != nil {
 			return getErr
 		}
@@ -116,7 +134,7 @@ func (esftp Easysftp) GetRecursively(localPath string, remotePath string) error 
 }
 
 // getTransfer Download Transfer execute
-func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath string) (int64, error) {
+func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath string, tfBytes *int64) (int64, error) {
 	localFile, localFileErr := os.Create(localFilepath)
 	if localFileErr != nil {
 		return 0, errors.New("localFileErr: " + localFileErr.Error())
@@ -129,7 +147,15 @@ func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 	}
 	defer remoteFile.Close()
 
-	bytes, copyErr := io.Copy(localFile, remoteFile)
+	var bytes int64
+	var copyErr error
+	// withProgress
+	if tfBytes != nil {
+		remoteFileWithProgress := &IOReaderProgress{Reader: remoteFile, TransferredBytes: tfBytes}
+		bytes, copyErr = io.Copy(localFile, remoteFileWithProgress)
+	} else {
+		bytes, copyErr = io.Copy(localFile, remoteFile)
+	}
 	if copyErr != nil {
 		return 0, errors.New("copyErr: " + copyErr.Error())
 	}

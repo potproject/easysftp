@@ -117,7 +117,11 @@ func TestGet(t *testing.T) {
 		return
 	}
 
-	_, downloadError := esftp.Get("./test.txt", "/tmp/test.txt")
+	var i int64
+	b, downloadError := esftp.GetWithProgress("./test.txt", "/tmp/test.txt", &i)
+	if i != b {
+		t.Error("not matched transferred Bytes i:", i, "b:", b)
+	}
 	if downloadError != nil {
 		t.Error(downloadError.Error())
 		return
