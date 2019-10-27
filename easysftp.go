@@ -169,7 +169,12 @@ func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 
 // Put is Single File Upload
 func (esftp Easysftp) Put(localFilepath string, remoteFilepath string) (int64, error) {
-	return putTransfer(esftp.SFTPClient, localFilepath, remoteFilepath)
+	return putTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, nil)
+}
+
+// PutWithProgress [Experimental] Put with Display Processing Bytes
+func (esftp Easysftp) PutWithProgress(localFilepath string, remoteFilepath string, transferred *int64) (int64, error) {
+	return putTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, transferred)
 }
 
 // PutRecursively is Recursively Upload entire directories
@@ -199,7 +204,7 @@ func (esftp Easysftp) PutRecursively(localPath string, remotePath string) error 
 			}
 			return nil
 		}
-		_, getErr := putTransfer(esftp.SFTPClient, localFullFilepath, remoteFilepath)
+		_, getErr := putTransfer(esftp.SFTPClient, localFullFilepath, remoteFilepath, nil)
 		if getErr != nil {
 			return getErr
 		}
@@ -209,7 +214,7 @@ func (esftp Easysftp) PutRecursively(localPath string, remotePath string) error 
 }
 
 // Upload Transfer execute
-func putTransfer(client *sftp.Client, localFilepath string, remoteFilepath string) (int64, error) {
+func putTransfer(client *sftp.Client, localFilepath string, remoteFilepath string, tfBytes *int64) (int64, error) {
 	remoteFile, remoteFileErr := client.Create(remoteFilepath)
 	if remoteFileErr != nil {
 		return 0, errors.New("remoteFileErr: " + remoteFileErr.Error())
@@ -222,7 +227,16 @@ func putTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 	}
 	defer localFile.Close()
 
-	bytes, copyErr := io.Copy(remoteFile, localFile)
+	var bytes int64
+	var copyErr error
+	// withProgress
+	if tfBytes != nil {
+		localFileWithProgress := &IOReaderProgress{Reader: localFile, TransferredBytes: tfBytes}
+		bytes, copyErr = io.Copy(remoteFile, localFileWithProgress)
+	} else {
+		bytes, copyErr = io.Copy(remoteFile, localFile)
+	}
+
 	if copyErr != nil {
 		return 0, errors.New("copyErr: " + copyErr.Error())
 	}

@@ -167,7 +167,11 @@ func TestPut(t *testing.T) {
 	fmt.Fprintln(file, "TestPut")
 	file.Close()
 
-	_, uploadError := esftp.Put("./test.txt", "/tmp/test.txt")
+	var i int64
+	b, uploadError := esftp.PutWithProgress("./test.txt", "/tmp/test.txt", &i)
+	if i != b {
+		t.Error("not matched transferred Bytes i:", i, "b:", b)
+	}
 	if uploadError != nil {
 		t.Error(uploadError.Error())
 		return
