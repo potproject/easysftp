@@ -117,13 +117,19 @@ func TestGet(t *testing.T) {
 		return
 	}
 
+	_, downloadError := esftp.Get("./test.txt", "/tmp/test.txt")
+	if downloadError != nil {
+		t.Error(downloadError.Error())
+		return
+	}
+
 	var i int64
-	b, downloadError := esftp.GetWithProgress("./test.txt", "/tmp/test.txt", &i)
+	b, downloadWPError := esftp.GetWithProgress("./test.txt", "/tmp/test.txt", &i)
 	if i != b {
 		t.Error("not matched transferred Bytes i:", i, "b:", b)
 	}
-	if downloadError != nil {
-		t.Error(downloadError.Error())
+	if downloadWPError != nil {
+		t.Error(downloadWPError.Error())
 		return
 	}
 
@@ -167,13 +173,19 @@ func TestPut(t *testing.T) {
 	fmt.Fprintln(file, "TestPut")
 	file.Close()
 
+	_, uploadError := esftp.Put("./test.txt", "/tmp/test.txt")
+	if uploadError != nil {
+		t.Error(uploadError.Error())
+		return
+	}
+
 	var i int64
-	b, uploadError := esftp.PutWithProgress("./test.txt", "/tmp/test.txt", &i)
+	b, uploadWPError := esftp.PutWithProgress("./test.txt", "/tmp/test.txt", &i)
 	if i != b {
 		t.Error("not matched transferred Bytes i:", i, "b:", b)
 	}
-	if uploadError != nil {
-		t.Error(uploadError.Error())
+	if uploadWPError != nil {
+		t.Error(uploadWPError.Error())
 		return
 	}
 
