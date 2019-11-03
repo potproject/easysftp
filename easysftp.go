@@ -87,12 +87,12 @@ func NewClient(conn *ssh.Client) (esftp Easysftp, err error) {
 
 // Get is Single File Download
 func (esftp Easysftp) Get(localFilepath string, remoteFilepath string) (int64, error) {
-	return getTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, nil)
+	return getTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, nil, nil)
 }
 
 // GetWithProgress [Experimental] Get with Display Processing Bytes
-func (esftp Easysftp) GetWithProgress(localFilepath string, remoteFilepath string, transferred *int64) (int64, error) {
-	return getTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, transferred)
+func (esftp Easysftp) GetWithProgress(localFilepath string, remoteFilepath string, transferred *int64, total *int64) (int64, error) {
+	return getTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, transferred, total)
 }
 
 // GetRecursively is Recursively Download entire directories
@@ -125,7 +125,7 @@ func (esftp Easysftp) GetRecursively(localPath string, remotePath string) error 
 			}
 			continue
 		}
-		_, getErr := getTransfer(esftp.SFTPClient, localFilepath, remoteFullFilepath, nil)
+		_, getErr := getTransfer(esftp.SFTPClient, localFilepath, remoteFullFilepath, nil, nil)
 		if getErr != nil {
 			return getErr
 		}
@@ -134,7 +134,7 @@ func (esftp Easysftp) GetRecursively(localPath string, remotePath string) error 
 }
 
 // getTransfer Download Transfer execute
-func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath string, tfBytes *int64) (int64, error) {
+func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath string, tfBytes *int64, totalBytes *int64) (int64, error) {
 	localFile, localFileErr := os.Create(localFilepath)
 	if localFileErr != nil {
 		return 0, errors.New("localFileErr: " + localFileErr.Error())
@@ -150,6 +150,10 @@ func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 	var bytes int64
 	var copyErr error
 	// withProgress
+	if totalBytes != nil {
+		f, _ := remoteFile.Stat()
+		*totalBytes = f.Size()
+	}
 	if tfBytes != nil {
 		remoteFileWithProgress := &IOReaderProgress{Reader: remoteFile, TransferredBytes: tfBytes}
 		bytes, copyErr = io.Copy(localFile, remoteFileWithProgress)
@@ -169,12 +173,12 @@ func getTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 
 // Put is Single File Upload
 func (esftp Easysftp) Put(localFilepath string, remoteFilepath string) (int64, error) {
-	return putTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, nil)
+	return putTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, nil, nil)
 }
 
 // PutWithProgress [Experimental] Put with Display Processing Bytes
-func (esftp Easysftp) PutWithProgress(localFilepath string, remoteFilepath string, transferred *int64) (int64, error) {
-	return putTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, transferred)
+func (esftp Easysftp) PutWithProgress(localFilepath string, remoteFilepath string, transferred *int64, total *int64) (int64, error) {
+	return putTransfer(esftp.SFTPClient, localFilepath, remoteFilepath, transferred, total)
 }
 
 // PutRecursively is Recursively Upload entire directories
@@ -204,7 +208,7 @@ func (esftp Easysftp) PutRecursively(localPath string, remotePath string) error 
 			}
 			return nil
 		}
-		_, getErr := putTransfer(esftp.SFTPClient, localFullFilepath, remoteFilepath, nil)
+		_, getErr := putTransfer(esftp.SFTPClient, localFullFilepath, remoteFilepath, nil, nil)
 		if getErr != nil {
 			return getErr
 		}
@@ -214,7 +218,7 @@ func (esftp Easysftp) PutRecursively(localPath string, remotePath string) error 
 }
 
 // Upload Transfer execute
-func putTransfer(client *sftp.Client, localFilepath string, remoteFilepath string, tfBytes *int64) (int64, error) {
+func putTransfer(client *sftp.Client, localFilepath string, remoteFilepath string, tfBytes *int64, totalBytes *int64) (int64, error) {
 	remoteFile, remoteFileErr := client.Create(remoteFilepath)
 	if remoteFileErr != nil {
 		return 0, errors.New("remoteFileErr: " + remoteFileErr.Error())
@@ -230,6 +234,10 @@ func putTransfer(client *sftp.Client, localFilepath string, remoteFilepath strin
 	var bytes int64
 	var copyErr error
 	// withProgress
+	if totalBytes != nil {
+		f, _ := localFile.Stat()
+		*totalBytes = f.Size()
+	}
 	if tfBytes != nil {
 		localFileWithProgress := &IOReaderProgress{Reader: localFile, TransferredBytes: tfBytes}
 		bytes, copyErr = io.Copy(remoteFile, localFileWithProgress)
