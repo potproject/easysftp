@@ -65,3 +65,27 @@ func exampleRecursively() {
 	}
 	log.Println("Upload OK")
 }
+
+func exampleWithProgress() {
+	// Connect Example
+	// [SFTP Command] $ sftp USERNAME@example.hostname.local -oPort=22 -i ~/.ssh/id_rsa
+	esftpSession, err := easysftp.Connect("USERNAME", "example.hostname.local", 22, "~/.ssh/id_rsa")
+
+	// Alternative: Using *ssh.Client
+	// esftpSession, err := easysftp.NewClient(conn)
+
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+	defer esftpSession.Close()
+
+	// SFTP File Get
+	// [SFTP Command] sftp> get /tmp/remotefile.txt /tmp/localfile.txt
+	var transferred int64
+	var total int64
+	downloadBytes, downloadError := esftpSession.GetWithProgress("/tmp/localfile.txt", "/tmp/remotefile.txt", &transferred, &total)
+	if downloadError != nil {
+		log.Fatalln("Download Error:", err.Error())
+	}
+	log.Println("Download OK:", downloadBytes)
+}
